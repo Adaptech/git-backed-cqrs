@@ -5,15 +5,27 @@
     <title>Orders</title>
 </head>
 <body>
-    <h2>Current Orders</h2>
+<div>
+    <h2>Create Order</h2>
     <div>
-        <ul>
-        {{ range . }}
-        <li>{{ .id }} - {{ .date }}</li>
+        {{ range .orders }}
+        <table>
+            <th><td>Description</td><td>Price</td><td>Qty</td><td>Totals</td></th>
+            <tr>
+                <td>{{ .description }}</td>
+                <td>{{ .price }}</td>
+                <td>{{ .quantity }}</td>
+                <td>{{ .lineTotal }}</td>
+            </tr>
+        </table>
         {{ else }}
-        <li>No orders yet.</li>
         {{ end }}
-        </ul>
     </div>
+    <form action="/createOrder" method="post">
+        <span>Add to order: <select>
+
+        </select></span>
+    </form>
+</div>
 </body>
 </html>
