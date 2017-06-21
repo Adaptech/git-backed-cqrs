@@ -2,16 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Orders</title>
+    <title>Todo Lists</title>
 </head>
 <body>
 <div>
-    <h2>Current Orders</h2>
+    <h2>Todo Lists</h2>
     <ul>
         {{ range . }}
         <li>{{ .id }} - {{ .date }}</li>
         {{ else }}
-        <li>No orders yet.</li>
+        <li>No todo lists yet.</li>
         {{ end }}
     </ul>
 </div>
