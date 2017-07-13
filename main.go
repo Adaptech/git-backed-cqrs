@@ -12,6 +12,7 @@ import (
 	"path"
 	"reflect"
 	"strings"
+	"log"
 )
 
 type TodoList struct {
@@ -40,6 +41,7 @@ func listTodoListsPageHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 var PageTemplates = template.Must(template.ParseGlob("templates/*.html"))
+var Info = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 func pseudo_uuid() (uuid string) {
 
 	b := make([]byte, 16)
@@ -54,6 +56,7 @@ func pseudo_uuid() (uuid string) {
 	return
 }
 func main() {
+
 	makeStorage()
 	http.HandleFunc("/Todolists", listTodoListsPageHandler)
 	http.HandleFunc("/createTodoList", createTodoList)
@@ -84,12 +87,12 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 }
 func storeEvent(todoListCreated *TodoListCreated) {
 	streamDir := path.Join("storage", todoListCreated.Id)
-	fmt.Printf("storeEvent streamDir = %v\n", streamDir)
+	Info.Println(fmt.Printf("storeEvent streamDir = %v\n", streamDir))
 	dirs, _ := ioutil.ReadDir(streamDir)
 	if len(dirs) == 0 {
 		os.Mkdir(streamDir, 0755)
 	}
-	fmt.Printf("storeEvent dirs = %v len = %v\n", dirs, len(dirs))
+	Info.Println(fmt.Printf("storeEvent dirs = %v len = %v\n", dirs, len(dirs)))
 	seqNum := len(dirs) + 1
 	cmdStrs := strings.Split(fmt.Sprintf("%s", reflect.TypeOf(todoListCreated)), ".")
 	eventString := cmdStrs[len(cmdStrs) - 1]
@@ -100,7 +103,7 @@ func storeEvent(todoListCreated *TodoListCreated) {
 	}
 	defer f.Close()
 	serializedBytes, _ := json.Marshal(todoListCreated)
-	fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes)
+	Info.Println(fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes))
 	_, err = f.Write(serializedBytes)
 	if err != nil {
 		fmt.Printf("storeEvent Write err = %v\n", err)
