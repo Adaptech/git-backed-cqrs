@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"path"
 	"reflect"
+	"strings"
 )
 
 type TodoList struct {
@@ -68,6 +69,7 @@ func createTodoList(writer http.ResponseWriter, request *http.Request) {
 	handleCreateTodoList(createTodoCommand)
 }
 func handleCreateTodoList(todoListCreate *TodoListCreate) {
+//	fmt.Printf("handleCreateTodoList Id = %v Name = %v\n", todoListCreate.Id, todoListCreate.Name)
 	todoListCreated := &TodoListCreated{
 		Message {
 			todoListCreate.Id,
@@ -78,10 +80,27 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 }
 func storeEvent(todoListCreated *TodoListCreated) {
 	streamDir := path.Join("storage", todoListCreated.Id)
+//	fmt.Printf("storeEvent streamDir = %v\n", streamDir)
 	dirs, _ := ioutil.ReadDir(streamDir)
-	fileName := string(len(dirs) + 1) + "_" + reflect.TypeOf(todoListCreated).Name()
+	if len(dirs) == 0 {
+		os.Mkdir(streamDir, 0755)
+	}
+	fmt.Printf("storeEvent dirs = %v len = %v\n", dirs, len(dirs))
+	seqNum := len(dirs) + 1
+	cmdStrs := strings.Split(fmt.Sprintf("%s", reflect.TypeOf(todoListCreated)), ".")
+	eventString := cmdStrs[len(cmdStrs) - 1]
+	fileName := path.Join(streamDir, fmt.Sprintf("%06d", seqNum) + "_" + eventString)
+	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0700)
+	if err != nil {
+		fmt.Printf("storeEvent OpenFile err = %v\n", err)
+	}
+	defer f.Close()
 	serializedBytes, _ := json.Marshal(todoListCreated)
-	ioutil.WriteFile(path.Join(streamDir, fileName), serializedBytes, 600 )
+//	fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes)
+	_, err = f.Write(serializedBytes)
+	if err != nil {
+		fmt.Printf("storeEvent Write err = %v\n", err)
+	}
 }
 
 func git(command string, args ...string) {
