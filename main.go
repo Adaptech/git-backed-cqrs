@@ -86,7 +86,7 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 	storeEvent(todoListCreated)
 }
 func storeEvent(todoListCreated *TodoListCreated) {
-	streamDir := path.Join("storage", todoListCreated.Id)
+	streamDir := path.Join("storage/event-stream", todoListCreated.Id)
 	Info.Println(fmt.Printf("storeEvent streamDir = %v\n", streamDir))
 	dirs, _ := ioutil.ReadDir(streamDir)
 	if len(dirs) == 0 {
