@@ -57,19 +57,23 @@ func main() {
 	makeStorage()
 	http.HandleFunc("/Todolists", listTodoListsPageHandler)
 	http.HandleFunc("/createTodoList", createTodoList)
+	http.HandleFunc("/createTodoListForm", showCreateTodoListForm)
 	http.ListenAndServe(":8080", nil)
+}
+func showCreateTodoListForm(writer http.ResponseWriter, request *http.Request) {
+	PageTemplates.ExecuteTemplate(writer, "createTodoList.html", nil)
 }
 func createTodoList(writer http.ResponseWriter, request *http.Request) {
 	createTodoCommand := &TodoListCreate{
 		Message {
 			pseudo_uuid(),
 		},
-		"test",
+		request.FormValue("name"),
 	}
 	handleCreateTodoList(createTodoCommand)
 }
 func handleCreateTodoList(todoListCreate *TodoListCreate) {
-//	fmt.Printf("handleCreateTodoList Id = %v Name = %v\n", todoListCreate.Id, todoListCreate.Name)
+	fmt.Printf("handleCreateTodoList Id = %v Name = %v\n", todoListCreate.Id, todoListCreate.Name)
 	todoListCreated := &TodoListCreated{
 		Message {
 			todoListCreate.Id,
@@ -80,7 +84,7 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 }
 func storeEvent(todoListCreated *TodoListCreated) {
 	streamDir := path.Join("storage", todoListCreated.Id)
-//	fmt.Printf("storeEvent streamDir = %v\n", streamDir)
+	fmt.Printf("storeEvent streamDir = %v\n", streamDir)
 	dirs, _ := ioutil.ReadDir(streamDir)
 	if len(dirs) == 0 {
 		os.Mkdir(streamDir, 0755)
@@ -96,7 +100,7 @@ func storeEvent(todoListCreated *TodoListCreated) {
 	}
 	defer f.Close()
 	serializedBytes, _ := json.Marshal(todoListCreated)
-//	fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes)
+	fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes)
 	_, err = f.Write(serializedBytes)
 	if err != nil {
 		fmt.Printf("storeEvent Write err = %v\n", err)

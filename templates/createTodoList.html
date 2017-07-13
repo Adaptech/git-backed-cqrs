@@ -6,11 +6,12 @@
 </head>
 <body>
 <div>
+    {{template "menu.html"}}
     <h2>Create TodoList</h2>
-    <form action="/createOrder" method="post">
-        <span>Add to order: <select>
-
-        </select></span>
+    <form action="/createTodoList" method="post">
+        <span>Name of Todo List: </span>
+        <input type="text" id="name" />
+        <input type="submit"/>
     </form>
 </div>
 </body>
