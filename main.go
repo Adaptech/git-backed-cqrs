@@ -13,25 +13,31 @@ import (
 	"reflect"
 	"strings"
 	"log"
+	"strconv"
 )
 
 type TodoList struct {
 	Name string
 }
 type TodoListCreated struct {
-	Message
+	Identity
 	Name string
 }
+func (event TodoListCreated) GetId() string { return event.Id }
+
 type TodoListItemCreated struct {
-	Message
+	Identity
 	Name string
 }
-type Message struct {
+type Identity struct {
 	Id string
 }
 type TodoListCreate struct {
-	Message
+	Identity
 	Name string
+}
+type Message interface {
+	GetId() string
 }
 func listTodoListsPageHandler(w http.ResponseWriter, r *http.Request) {
 	todoLists := []TodoList{}
@@ -56,8 +62,8 @@ func pseudo_uuid() (uuid string) {
 	return
 }
 func main() {
-
 	makeStorage()
+
 	http.HandleFunc("/Todolists", listTodoListsPageHandler)
 	http.HandleFunc("/createTodoList", createTodoList)
 	http.HandleFunc("/createTodoListForm", showCreateTodoListForm)
@@ -68,7 +74,7 @@ func showCreateTodoListForm(writer http.ResponseWriter, request *http.Request) {
 }
 func createTodoList(writer http.ResponseWriter, request *http.Request) {
 	createTodoCommand := &TodoListCreate{
-		Message {
+		Identity{
 			pseudo_uuid(),
 		},
 		request.FormValue("name"),
@@ -77,16 +83,50 @@ func createTodoList(writer http.ResponseWriter, request *http.Request) {
 }
 func handleCreateTodoList(todoListCreate *TodoListCreate) {
 	fmt.Printf("handleCreateTodoList Id = %v Name = %v\n", todoListCreate.Id, todoListCreate.Name)
-	todoListCreated := &TodoListCreated{
-		Message {
+	todoListCreated := TodoListCreated{
+		Identity{
 			todoListCreate.Id,
 		},
 		todoListCreate.Name,
 	}
 	storeEvent(todoListCreated)
 }
-func storeEvent(todoListCreated *TodoListCreated) {
-	streamDir := path.Join("storage/event-stream", todoListCreated.Id)
+func storeEvent(event Message) {
+	//TODO: wrap all of this so if anything fails we reset or stash the workind directory
+	name := UpdateStream(event)
+	UpdateStreamIndex(name)
+	UpdateReadModels(event)
+	//TODO: then add and commit in git
+	git("add", ".")
+	git("commit", "-m",event.GetId())
+}
+func UpdateStreamIndex(eventName string) {
+	ioutil.WriteFile("storage/event-stream/index",[]byte(eventName),0700)
+}
+
+func UpdateReadModels(event interface{}) {
+	UpdateListOfTodos(event)
+	UpdateTodoDetails(event)
+	UpdateCountOfTodoLists(event)
+}
+func UpdateCountOfTodoLists(event interface{}) {
+	count := 0
+	fileStoredCount, err := ioutil.ReadFile("storage/projections/TodoListsCount")
+	if err != nil {
+		ioutil.WriteFile("storage/projections/TodoListsCount", []byte("1"), 0700)
+		return
+	}
+	count, _ = strconv.Atoi(string(fileStoredCount))
+	ioutil.WriteFile("storage/projections/TodoListsCount", []byte(strconv.Itoa(count + 1)), 0700)
+	}
+func UpdateTodoDetails(event interface{}) {
+
+}
+func UpdateListOfTodos(event interface{}) {
+
+}
+func UpdateStream(event Message) (string) {
+	streamDir := path.Join("storage/event-stream", event.GetId())
 	Info.Println(fmt.Printf("storeEvent streamDir = %v\n", streamDir))
 	dirs, _ := ioutil.ReadDir(streamDir)
 	if len(dirs) == 0 {
@@ -94,20 +134,21 @@ func storeEvent(todoListCreated *TodoListCreated) {
 	}
 	Info.Println(fmt.Printf("storeEvent dirs = %v len = %v\n", dirs, len(dirs)))
 	seqNum := len(dirs) + 1
-	cmdStrs := strings.Split(fmt.Sprintf("%s", reflect.TypeOf(todoListCreated)), ".")
-	eventString := cmdStrs[len(cmdStrs) - 1]
-	fileName := path.Join(streamDir, fmt.Sprintf("%06d", seqNum) + "_" + eventString)
+	cmdStrs := strings.Split(fmt.Sprintf("%s", reflect.TypeOf(event)), ".")
+	eventString := cmdStrs[len(cmdStrs)-1]
+	fileName := path.Join(streamDir, fmt.Sprintf("%06d", seqNum)+"_"+eventString)
 	f, err := os.OpenFile(fileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0700)
 	if err != nil {
 		fmt.Printf("storeEvent OpenFile err = %v\n", err)
 	}
 	defer f.Close()
-	serializedBytes, _ := json.Marshal(todoListCreated)
+	serializedBytes, _ := json.Marshal(event)
 	Info.Println(fmt.Printf("storeEvent serializedBytes = %s\n", serializedBytes))
 	_, err = f.Write(serializedBytes)
 	if err != nil {
 		fmt.Printf("storeEvent Write err = %v\n", err)
 	}
+	return fileName
 }
 
 func git(command string, args ...string) {
