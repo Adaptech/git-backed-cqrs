@@ -104,11 +104,14 @@ func UpdateStreamIndex(eventName string) {
 	ioutil.WriteFile("storage/event-stream/index",[]byte(eventName),0700)
 }
 
+// This is your pub/sub.. the kafka replacement
 func UpdateReadModels(event interface{}) {
 	UpdateListOfTodos(event)
 	UpdateTodoDetails(event)
 	UpdateCountOfTodoLists(event)
 }
+
+// An example of a read model
 func UpdateCountOfTodoLists(event interface{}) {
 	count := 0
 	fileStoredCount, err := ioutil.ReadFile("storage/projections/TodoListsCount")
@@ -125,6 +128,7 @@ func UpdateTodoDetails(event interface{}) {
 func UpdateListOfTodos(event interface{}) {
 
 }
+// how event streams are stored
 func UpdateStream(event Message) (string) {
 	streamDir := path.Join("storage/event-stream", event.GetId())
 	Info.Println(fmt.Printf("storeEvent streamDir = %v\n", streamDir))
