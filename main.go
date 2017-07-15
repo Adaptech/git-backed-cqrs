@@ -40,11 +40,21 @@ type Message interface {
 	GetId() string
 }
 func listTodoListsPageHandler(w http.ResponseWriter, r *http.Request) {
-	todoLists := []TodoList{}
+//	todoLists := []TodoList{}
+	var todoLists []TodoList
 	file, err := ioutil.ReadFile("storage/projections/todoLists")
-	if err != nil { json.Unmarshal(file, &todoLists) }
+	if err != nil {
+		fmt.Println("listTodoListsPageHandler error: ", err)
+	} else {
+		fmt.Printf("listTodoListsPageHandler file = %s\n", file)
+		err = json.Unmarshal(file, &todoLists)
+		if err != nil {
+			fmt.Println("listTodoListsPageHandler Unmarshal error: ", err)
+		} else {
+			fmt.Printf("listTodoListsPageHandler unmarshalled = %#v\n", todoLists)
+		}
+	}
 	PageTemplates.ExecuteTemplate(w, "todoLists.html", todoLists)
-
 }
 var PageTemplates = template.Must(template.ParseGlob("templates/*.html"))
 var Info = log.New(os.Stdout, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
@@ -63,6 +73,8 @@ func pseudo_uuid() (uuid string) {
 }
 func main() {
 	makeStorage()
+
+	fmt.Println("Now listening on http://localhost:8080 ...")
 
 	http.HandleFunc("/Todolists", listTodoListsPageHandler)
 	http.HandleFunc("/createTodoList", createTodoList)
@@ -92,7 +104,7 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 	storeEvent(todoListCreated)
 }
 func storeEvent(event Message) {
-	//TODO: wrap all of this so if anything fails we reset or stash the workind directory
+	//TODO: wrap all of this so if anything fails we reset or stash the working directory
 	name := UpdateStream(event)
 	UpdateStreamIndex(name)
 	UpdateReadModels(event)
@@ -101,7 +113,15 @@ func storeEvent(event Message) {
 	git("commit", "-m",event.GetId())
 }
 func UpdateStreamIndex(eventName string) {
-	ioutil.WriteFile("storage/event-stream/index",[]byte(eventName),0700)
+	f, err := os.OpenFile("storage/event-stream/index", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0700)
+	if err != nil {
+		fmt.Printf("UpdateStreamIndex OpenFile err = %v\n", err)
+	}
+	defer f.Close()
+	_, err = f.WriteString(eventName+"\n")
+	if err != nil {
+		fmt.Printf("UpdateStreamIndex Write err = %v\n", err)
+	}
 }
 
 func UpdateReadModels(event interface{}) {
@@ -118,12 +138,60 @@ func UpdateCountOfTodoLists(event interface{}) {
 	}
 	count, _ = strconv.Atoi(string(fileStoredCount))
 	ioutil.WriteFile("storage/projections/TodoListsCount", []byte(strconv.Itoa(count + 1)), 0700)
-	}
+}
 func UpdateTodoDetails(event interface{}) {
 
 }
 func UpdateListOfTodos(event interface{}) {
-
+	fn := "storage/projections/todoLists"
+	fi, err := os.Stat(fn)
+	fmt.Println("UpdateListOfTodos Stat err = ", err)
+	if err != nil {
+		f, err := os.Create(fn)
+		if err != nil {
+			fmt.Println("UpdateListOfTodos Create err = ", err)
+		}
+		err = f.Chmod(0700)
+		if err != nil {
+			fmt.Println("UpdateListOfTodos Chmod err = ", err)
+		}
+		_, err = f.Write([]byte("["))
+		if err != nil {
+			fmt.Println("UpdateListOfTodos 1st Write err = ", err)
+		}
+		f.Close()
+	}
+	fi, err = os.Stat(fn)
+	if fi.Size() > 1 {
+		fmt.Println("UpdateListOfTodos file size = ", fi.Size())
+		f, err := os.OpenFile("storage/projections/todoLists", os.O_RDWR|os.O_APPEND, 0700)
+		if err != nil {
+			fmt.Printf("UpdateListOfTodos 1st OpenFile err = %v\n", err)
+		}
+		err = f.Truncate(fi.Size()-1)
+		if err != nil {
+			fmt.Printf("UpdateListOfTodos Truncate err = %v\n", err)
+		}
+		f.Close()
+	}
+	f, err := os.OpenFile("storage/projections/todoLists", os.O_RDWR|os.O_APPEND, 0700)
+	defer f.Close()
+	if fi.Size() > 1 {
+		_, err = f.Write([]byte(","))
+		if err != nil {
+			fmt.Println("UpdateListOfTodos 2nd Write err = ", err)
+		}
+	}
+	serializedBytes, _ := json.Marshal(event)
+	Info.Println(fmt.Printf("UpdateListOfTodos serializedBytes = %s\n", serializedBytes))
+	_, err = f.Write(serializedBytes)
+	if err != nil {
+		fmt.Println("UpdateListOfTodos 3rd Write err = ", err)
+	}
+	_, err = f.Write([]byte("]"))
+	if err != nil {
+		fmt.Println("UpdateListOfTodos 4th Write err = ", err)
+	}
 }
 func UpdateStream(event Message) (string) {
 	streamDir := path.Join("storage/event-stream", event.GetId())
@@ -152,7 +220,8 @@ func UpdateStream(event Message) (string) {
 }
 
 func git(command string, args ...string) {
-	exec.Command("git", append([]string{"-C", "storage", command}, args...)...).Run() }
+	exec.Command("git", append([]string{"-C", "storage", command}, args...)...).Run()
+}
 
 func makeStorage() {
 	_, err := os.Stat("storage")
