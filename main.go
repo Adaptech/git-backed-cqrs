@@ -96,7 +96,7 @@ func storeEvent(event Message) {
 	name := UpdateStream(event)
 	UpdateStreamIndex(name)
 	UpdateReadModels(event)
-	//TODO: then add and commit in git
+	// then add and commit in git
 	git("add", ".")
 	git("commit", "-m",event.GetId())
 }
