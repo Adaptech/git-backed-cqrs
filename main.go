@@ -101,7 +101,9 @@ func storeEvent(event Message) {
 	git("commit", "-m",event.GetId())
 }
 func UpdateStreamIndex(eventName string) {
-	ioutil.WriteFile("storage/event-stream/index",[]byte(eventName),0700)
+	file, _ := os.OpenFile("storage/event-stream/index", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0700)
+	defer file.Close()
+	file.WriteString(eventName + "\n")
 }
 
 // This is your pub/sub.. the kafka replacement
