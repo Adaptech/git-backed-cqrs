@@ -92,7 +92,7 @@ func handleCreateTodoList(todoListCreate *TodoListCreate) {
 	storeEvent(todoListCreated)
 }
 func storeEvent(event Message) {
-	//TODO: wrap all of this so if anything fails we reset or stash the workind directory
+	//TODO: wrap all of this so if anything fails we reset or stash the working directory
 	name := UpdateStream(event)
 	UpdateStreamIndex(name)
 	UpdateReadModels(event)
